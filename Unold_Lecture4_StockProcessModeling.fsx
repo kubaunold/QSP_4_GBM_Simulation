@@ -45,41 +45,39 @@ module everything =
 
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
         //start counting trajectories
-        for c in 1..count do
-            let uniformRV = genRandomNumbersNominalInterval steps c
-            printfn "%d" c
-            let normalRV = normalizeRec uniformRV steps
+        let rec buildResult currentResult t =
+            if t = count+1 then currentResult
+            else
+                let uniformRV = genRandomNumbersNominalInterval steps t
+                printfn "%d" t
+                let normalRV = normalizeRec uniformRV steps
         
-            //build stock prices list
-            let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
-                let stepsMinusOne = steps - 1
-                match normalId with
-                | stepsMinusOne -> currentStockPricesList
-                | _ ->
-                    let newStockPrice = currentStockPricesList.[currentStockPricesList.Length - 1] * Math.E ** (((drift - vol**2.)/2.)*(float(years)/float(steps)) + vol * sqrt(float(years)/float(steps)) * normalRV.[normalId])
-                    buildStockPricesList (currentStockPricesList @ [newStockPrice]) steps (normalId+1)
-            let stockPricesList = buildStockPricesList [price] steps 0
-            let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
-                         //calculate historical (realized) volatility
-            let rec buildRList (rList:float list) (index:int) =
-                match index with
-                | stepsMinusOne -> rList
-                | _ ->
-                    let currentR =  Math.Log((stockPricesList.[index+1])/(stockPricesList.[index]), Math.E)
-                    buildRList (rList@[currentR]) (index+1)
-            let rList = buildRList [] 0
-            let rAvg = List.average rList
-            let sumOfSquares : float = List.fold (fun acc elem -> acc  + (elem - rAvg)**2.) 0. rList
-            let historicalVolatilitySquared = float(steps)/(float(years)*(float(steps)-1.)) * sumOfSquares
-            //prepare final result being tuple: (finalStockPrice, realizedVolatility)
-            let result = [finalStockPrice; historicalVolatilitySquared]
-            
-            //System.IO.File.AppendAllText(path, string(stockPricesList.[stockPricesList.Length - 1]))
-            //System.IO.File.AppendAllText(path, string(historicalVolatilitySquared))
-            //printfn "%A" result        
-            //wr.Close()
-            //write trajectory to file
-            writeResultToFile result "output.txt"
+                //build stock prices list
+                let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
+                    if normalId = steps-1 then currentStockPricesList
+                    else
+                        let newStockPrice = currentStockPricesList.[currentStockPricesList.Length - 1] * Math.E ** (((drift - vol**2.)/2.)*(float(years)/float(steps)) + vol * sqrt(float(years)/float(steps)) * normalRV.[normalId])
+                        buildStockPricesList (currentStockPricesList @ [newStockPrice]) steps (normalId+1)
+                        
+                let stockPricesList = buildStockPricesList [price] steps 0
+                let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
+                //calculate historical (realized) volatility
+                let rec buildRList (rList:float list) (index:int) =
+                    if index = steps-1 then rList
+                    else
+                        let currentR =  Math.Log((stockPricesList.[index+1])/(stockPricesList.[index]), Math.E)
+                        buildRList (rList@[currentR]) (index+1)
+
+                let rList = buildRList [] 0
+                let rAvg = List.average rList
+                let sumOfSquares : float = List.fold (fun acc elem -> acc  + (elem - rAvg)**2.) 0. rList
+                let historicalVolatilitySquared = float(steps)/(float(years)*(float(steps)-1.)) * sumOfSquares
+                //prepare final result being tuple: (finalStockPrice, realizedVolatility)
+                let newResult = [finalStockPrice; historicalVolatilitySquared]
+                buildResult (currentResult@newResult) (t+1)
+        let result = buildResult [] 1
+        //writeResultToFile result "krzychu.txt"
+        result
 
     let count = 7
     let steps = 100
@@ -92,11 +90,37 @@ module everything =
     //let uniformRV = genRandomNumbersNominalInterval steps count
     //let normalRV = normalize uniformRV steps
 
-    simulateGBM count steps price drift vol years seed
+    let r = simulateGBM count steps price drift vol years seed
+    r
+    //-----------------------------------------------------------------
+
+    let simulateGBMv2 (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
+        let countPlusOne = count + 1
+        //start counting trajectories
+        let rec buildResult currentResult t =
+            match t with
+            | countPlusOne -> printfn "jestem tutaj"
+            | _ -> 
+                printfn "a jednak wszed³em tutaj po raz %d" t  
+                buildResult [] (t+1)  
+                
+        let result = buildResult [] 1
+        //writeResultToFile result "krzychu.txt"
+        result
+
+    let r2 = simulateGBM count steps price drift vol years seed
+    r2
 
 
-
-
+    let count = 2
+    let countPlusOne = count + 1
+    let rec buildResult currentResult t =
+        match t with
+        | xyz -> printfn "jestem tutaj: %d" xyz
+        | _ -> 
+            printfn "a jednak wszed³em tutaj po raz %d" t  
+            buildResult [] (t+1)  
+    buildResult [] 1
 
 
 
