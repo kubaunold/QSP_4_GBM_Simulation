@@ -40,20 +40,17 @@ module everything =
                 insideUnfolder (normalList @ tempList) uniformList (uniformsLeft-2)
         insideUnfolder [] uniformList n
 
-    let count = 7
-    let steps = 1000
-    let price = 5.
-    let drift = 0.4
-    let vol = 0.
-    let years = 4
-    let seed = 5
 
-    let uniformRV = genRandomNumbersNominalInterval steps count
-    let normalRV = normalize uniformRV steps
 
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
-        let wr = new System.IO.StreamWriter(__SOURCE_DIRECTORY__ + "/output.txt")
+        //prepare writer to file
+        let filename = "output.txt"
+        let path = __SOURCE_DIRECTORY__ + "/" + filename
+        let wr = new System.IO.StreamWriter(path)
+        //empty the file
+        System.IO.File.WriteAllText(path, "")
         
+        //start counting trajectories
         for c in 1..count do
             let uniformRV = genRandomNumbersNominalInterval steps c
             printfn "%d" c
@@ -61,46 +58,49 @@ module everything =
             
             //build stock prices list
             let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
+                
                 let stepsMinusOne = steps - 1
                 match normalId with
                 | stepsMinusOne -> currentStockPricesList
                 | _ ->
-                    let newStockPrice = currentStockPricesList.[currentStockPricesList.Length - 1] * Math.E ** (drift - ((vol**2.)/2.)*(float(years)/float(steps)) + vol * sqrt(float(years)/float(steps)) * normalRV.[i])
+                    let newStockPrice = currentStockPricesList.[currentStockPricesList.Length - 1] * Math.E ** (drift - ((vol**2.)/2.)*(float(years)/float(steps)) + vol * sqrt(float(years)/float(steps)) * normalRV.[normalId])
                     buildStockPricesList (currentStockPricesList @ [newStockPrice]) steps (normalId+1)
-                let finalStockPricesList = buildStockPricesList [price] n 0
-                let finalStockPrice = finalStockPricesList.[finalStockPricesList.Length - 1]
+            let stockPricesList = buildStockPricesList [price] steps 0
+            let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
             
-
             //calculate historical (realized) volatility
-            let rec build rList =
-                let currentR =  Math.Log((stockPrice.[i+1])/(stockPrice.[i]), Math.E)
-
-            5
-
-            //calculate historical (realized) volatility
-            for i in 0..(steps-1) do
-                let nextR = Math.Log((stockPrice.[i+1])/(stockPrice.[i]), Math.E)
-                R <- R @ [nextR]
-
-            let RAvg = List.average R
-            let sumOfSquares : float = List.fold (fun acc elem -> acc  + (elem - RAvg)**2.) 0. R
-            R <- []
+            let rec buildRList (rList:float list) (index:int) =
+                match index with
+                | stepsMinusOne -> rList
+                | _ ->
+                    let currentR =  Math.Log((stockPricesList.[index+1])/(stockPricesList.[index]), Math.E)
+                    buildRList (rList@[currentR]) (index+1)
+            let rList = buildRList [] 0
+            let rAvg = List.average rList
+            let sumOfSquares : float = List.fold (fun acc elem -> acc  + (elem - rAvg)**2.) 0. rList
             let historicalVolatilitySquared = float(steps)/(float(years)*(float(steps)-1.)) * sumOfSquares
 
-            let result = [stockPrice.[stockPrice.Length - 1]; historicalVolatilitySquared]
+            //prepare final result being tuple: (finalStockPrice, realizedVolatility)
+            let result = [stockPricesList.[stockPricesList.Length - 1]; historicalVolatilitySquared]
 
-
-        System.IO.File.WriteAllText(__SOURCE_DIRECTORY__ + "/test.txt", "mama")
-        System.IO.File.AppendAllText(__SOURCE_DIRECTORY__ + "/test.txt", "yo")
-        let msg = System.IO.File.ReadAllText("test.txt")
-        printfn "%s" msg
-        
-
-
+            //write trajectory to file
+            System.IO.File.AppendAllText(path, string(stockPricesList.[stockPricesList.Length - 1]))
+            System.IO.File.AppendAllText(path, string(historicalVolatilitySquared))
+            printfn "%A" result        
         wr.Close()
 
+    let count = 7
+    let steps = 100
+    let price = 5.
+    let drift = 0.4
+    let vol = 0.
+    let years = 4
+    let seed = 5
 
-    simulateGBM count steps price drift vol years (seed+5)
+    //let uniformRV = genRandomNumbersNominalInterval steps count
+    //let normalRV = normalize uniformRV steps
+
+    simulateGBM count steps price drift vol years seed
 
 
 
