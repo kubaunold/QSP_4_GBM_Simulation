@@ -13,34 +13,38 @@ module everything =
         List.init count (fun _ -> rnd.NextDouble())
 
     //input: UniformRM need to be from interval (0,1]
+    //input: steps MUST BE EVEN!
     //output: NormalRV have mean=0 and standard_deviation=1
     let normalizeRec (uniformList:float list) (n:int) : float list =
-        let rec insideUnfolder (normalList:float list) (uniformList:float list) (uniformsLeft:int) : float list =
-            match uniformsLeft with
-            | 0 -> normalList //we reached end
-            | _ -> 
-                let oneU = uniformList.[uniformsLeft - 1]
-                let twoU = uniformList.[uniformsLeft - 2]
+        let rec buildNormalList (normalList:float list) =
+            if normalList.Length = n then normalList
+            else
+                let currentNIdOne = normalList.Length
+                let currentNIdTwo = currentNIdOne + 1
+                let oneU = uniformList.[currentNIdOne]
+                let twoU = uniformList.[currentNIdTwo]
                 let oneN = sqrt(-2.*Math.Log(oneU, Math.E))*sin(2.*Math.PI*twoU)
                 let twoN = sqrt(-2.*Math.Log(oneU, Math.E))*cos(2.*Math.PI*twoU)
-                let tempList = [oneN; twoN]
-                insideUnfolder (normalList @ tempList) uniformList (uniformsLeft-2)
-        insideUnfolder [] uniformList n
+                let newUniforms = [oneN; twoN]
+                buildNormalList (normalList@newUniforms)
+        buildNormalList []
 
     //function that writes result to a file
-    let writeResultToFile (result:float list) (fileName:string) =
-        //prepare writer to file
+    let writeResultToFile (result:float list list) (fileName:string) =
         let path = __SOURCE_DIRECTORY__ + "/" + fileName
         let wr = new System.IO.StreamWriter(path)
-        //empty the file
-        //System.IO.File.WriteAllText(path, "")
-        result |> List.map(string) |> String.concat(" ") |> wr.Write
+        for p in result do
+            //printfn "%A" p
+            p |> List.map(string) |> String.concat(" ") |> wr.Write
+            "\n" |> wr.Write
         wr.Close()
 
-    writeResultToFile [15.; 14.; 78.] "siemka.txt"
+    //writeResultToFile [[15.; 14.; 78.];[15.; 14.; 78.]] "siemka.txt"
 
         
 
+    for i in 1..5 do
+        printfn "%d" i
 
 
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
@@ -48,18 +52,19 @@ module everything =
         let rec buildResult currentResult t =
             if t = count+1 then currentResult
             else
-                let uniformRV = genRandomNumbersNominalInterval steps t
-                printfn "%d" t
-                let normalRV = normalizeRec uniformRV steps
+                let normalRV = normalizeRec (genRandomNumbersNominalInterval steps t) steps
         
                 //build stock prices list
                 let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
                     if normalId = steps-1 then currentStockPricesList
                     else
-                        let newStockPrice = currentStockPricesList.[currentStockPricesList.Length - 1] * Math.E ** (((drift - vol**2.)/2.)*(float(years)/float(steps)) + vol * sqrt(float(years)/float(steps)) * normalRV.[normalId])
-                        buildStockPricesList (currentStockPricesList @ [newStockPrice]) steps (normalId+1)
-                        
+                        let firstExpTerm =  (drift - (vol**2.)/2.) * (float(t)/float(steps))
+                        let secondExpTerm =  vol * sqrt(float(t)/float(steps)) * normalRV.[normalId]
+                        let newStockPrice = currentStockPricesList.[normalId] * Math.E ** (firstExpTerm + secondExpTerm)
+                        buildStockPricesList (currentStockPricesList@[newStockPrice]) steps (normalId+1)                
                 let stockPricesList = buildStockPricesList [price] steps 0
+                //printfn "StockPricesList: %A" stockPricesList
+
                 let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
                 //calculate historical (realized) volatility
                 let rec buildRList (rList:float list) (index:int) =
@@ -74,18 +79,18 @@ module everything =
                 let historicalVolatilitySquared = float(steps)/(float(years)*(float(steps)-1.)) * sumOfSquares
                 //prepare final result being tuple: (finalStockPrice, realizedVolatility)
                 let newResult = [finalStockPrice; historicalVolatilitySquared]
-                buildResult (currentResult@newResult) (t+1)
+                buildResult (currentResult@[newResult]) (t+1)
         let result = buildResult [] 1
-        //writeResultToFile result "krzychu.txt"
+        writeResultToFile result "output.txt"
         result
 
-    let count = 7
-    let steps = 100
-    let price = 5.
-    let drift = 0.4
-    let vol = 0.
-    let years = 4
-    let seed = 5
+    let count = 50
+    let steps = 1000 //must be EVEN!
+    let price = 4.20
+    let drift = 0.3
+    let vol = 0.65
+    let years = 1
+    let seed = 1
 
     //let uniformRV = genRandomNumbersNominalInterval steps count
     //let normalRV = normalize uniformRV steps
