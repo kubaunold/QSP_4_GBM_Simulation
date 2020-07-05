@@ -81,14 +81,14 @@ module everything =
                 let newResult = [finalStockPrice; historicalVolatilitySquared]
                 buildResult (currentResult@[newResult]) (t+1)
         let result = buildResult [] 1
-        writeResultToFile result "output.txt"
+        writeResultToFile result "42.txt"
         result
 
-    let count = 50
-    let steps = 1000 //must be EVEN!
+    let count = 1000
+    let steps = 250 //must be EVEN!
     let price = 4.20
     let drift = 0.3
-    let vol = 0.65
+    let vol = 0.0
     let years = 1
     let seed = 1
 
