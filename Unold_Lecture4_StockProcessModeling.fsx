@@ -81,10 +81,10 @@ module everything =
     let count = 1000
     let steps = 250 //must be EVEN!
     let price = 4.20
-    let drift = 0.3
-    let vol = 1.7
+    let drift = 0.12
+    let vol = 0.1
     let years = 1
-    let seed = 1
+    let seed = 3
 
     //let uniformRV = genRandomNumbersNominalInterval steps count
     //let normalRV = normalize uniformRV steps
