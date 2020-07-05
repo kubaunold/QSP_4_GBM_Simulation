@@ -41,12 +41,6 @@ module everything =
 
     //writeResultToFile [[15.; 14.; 78.];[15.; 14.; 78.]] "siemka.txt"
 
-        
-
-    for i in 1..5 do
-        printfn "%d" i
-
-
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
         //start counting trajectories
         let rec buildResult currentResult t =
@@ -81,14 +75,14 @@ module everything =
                 let newResult = [finalStockPrice; historicalVolatilitySquared]
                 buildResult (currentResult@[newResult]) (t+1)
         let result = buildResult [] 1
-        writeResultToFile result "42.txt"
+        writeResultToFile result "output.txt"
         result
 
     let count = 1000
     let steps = 250 //must be EVEN!
     let price = 4.20
     let drift = 0.3
-    let vol = 0.0
+    let vol = 1.7
     let years = 1
     let seed = 1
 
