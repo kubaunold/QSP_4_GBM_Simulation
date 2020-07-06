@@ -2,7 +2,7 @@ module GemetricBrownianMotion
 
 //Script implementing simulation of single stock pracies as values of Gemoetric Brownian Motion with given drift and volatility
 
-module everything =
+module helpers =
     open System //pi and e
     //override ToString method
     type test = {V:int} override this.ToString() = sprintf "%d" this.V
@@ -30,19 +30,30 @@ module everything =
         buildNormalList []
 
     //function that writes result to a file
-    let writeResultToFile (result:float list list) (fileName:string) =
+    let writeRVToFile (fileName:string) (result:float list) =
+        let path = __SOURCE_DIRECTORY__ + "/" + fileName
+        let wr = new System.IO.StreamWriter(path)
+        result |> List.map(string) |> String.concat("\n") |> wr.Write
+        wr.Close()
+
+    //let normalRV = normalizeRec (genRandomNumbersNominalInterval 10000 40000) 10000 |> writeRVToFile "hubert40000.csv"
+
+    //function that writes result to a file
+    let writeResultToFile (fileName:string) (result:float list list) =
         let path = __SOURCE_DIRECTORY__ + "/" + fileName
         let wr = new System.IO.StreamWriter(path)
         for p in result do
             //printfn "%A" p
-            p |> List.map(string) |> String.concat(" ") |> wr.Write
+            p |> List.map(string) |> String.concat(",") |> wr.Write
             "\n" |> wr.Write
         wr.Close()
 
-    //writeResultToFile [[15.; 14.; 78.];[15.; 14.; 78.]] "siemka.txt"
+module GBM =
+    open helpers
 
+    //writeResultToFile [[15.; 14.; 78.];[15.; 14.; 78.]] "siemka.txt"
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
-        //start counting trajectories
+        //start counting t(trajectories)
         let rec buildResult currentResult t =
             if t = count+1 then currentResult
             else
@@ -52,10 +63,10 @@ module everything =
                 let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
                     if normalId = steps-1 then currentStockPricesList
                     else
-                        let firstExpTerm =  (drift - (vol**2.)/2.) * (float(t)/float(steps))
-                        let secondExpTerm =  vol * sqrt(float(t)/float(steps)) * normalRV.[normalId]
+                        let firstExpTerm =  (drift - (vol**2.)/2.) * (float(years)/float(steps))
+                        let secondExpTerm =  vol * sqrt(float(years)/float(steps)) * normalRV.[normalId]
                         let newStockPrice = currentStockPricesList.[normalId] * Math.E ** (firstExpTerm + secondExpTerm)
-                        buildStockPricesList (currentStockPricesList@[newStockPrice]) steps (normalId+1)                
+                        buildStockPricesList (currentStockPricesList@[newStockPrice]) steps (normalId+1)
                 let stockPricesList = buildStockPricesList [price] steps 0
                 //printfn "StockPricesList: %A" stockPricesList
 
@@ -75,88 +86,24 @@ module everything =
                 let newResult = [finalStockPrice; historicalVolatilitySquared]
                 buildResult (currentResult@[newResult]) (t+1)
         let result = buildResult [] 1
-        writeResultToFile result "output.txt"
         result
 
     let count = 1000
     let steps = 250 //must be EVEN!
     let price = 4.20
     let drift = 0.12
-    let vol = 0.1
+    let vol = 0.2
     let years = 1
-    let seed = 3
+    let seed = 5
+    
+    simulateGBM count steps price drift vol years seed |> writeResultToFile "output.csv"
 
-    //let uniformRV = genRandomNumbersNominalInterval steps count
-    //let normalRV = normalize uniformRV steps
-
-    let r = simulateGBM count steps price drift vol years seed
-    r
-    //-----------------------------------------------------------------
-
-    let simulateGBMv2 (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
-        let countPlusOne = count + 1
-        //start counting trajectories
-        let rec buildResult currentResult t =
-            match t with
-            | countPlusOne -> printfn "jestem tutaj"
-            | _ -> 
-                printfn "a jednak wszed³em tutaj po raz %d" t  
-                buildResult [] (t+1)  
-                
-        let result = buildResult [] 1
-        //writeResultToFile result "krzychu.txt"
-        result
-
-    let r2 = simulateGBM count steps price drift vol years seed
-    r2
-
-
-    let count = 2
-    let countPlusOne = count + 1
-    let rec buildResult currentResult t =
-        match t with
-        | xyz -> printfn "jestem tutaj: %d" xyz
-        | _ -> 
-            printfn "a jednak wszed³em tutaj po raz %d" t  
-            buildResult [] (t+1)  
-    buildResult [] 1
+module BlackScholesModel =
 
 
 
 
-
-module helpers =
-    open System //for Math.PI
-    type test = {V:int} override this.ToString() = sprintf "%d" this.V
-    let getRandomBool = System.Random().Next()%2 |> System.Convert.ToBoolean
-    //let getRandomNumber = System.Random().Next()
-
-    let genRandomNumbers count =
-        let rnd = System.Random()
-        List.init count (fun _ -> rnd.Next()%100)
-    let l = genRandomNumbers 10
-    printfn "%A" l
-
-    //generates list of n Uniform RVs from interval [0,1]; here it's [0,1) I guess
-    let genRandomNumbersNominalInterval count (seed:int) : float list=
-        let rnd = System.Random(seed)
-        List.init count (fun _ -> rnd.NextDouble())
-    let ll = genRandomNumbersNominalInterval 7 20
-
-    //input: UniformRM need to be from interval (0,1]
-    //output: NormalRV have mean=0 and standard_deviation=1
-    let normalize (uniformList:float list) (n:int) : float list =
-        let mutable result = []
-        for x in 0..2..(n-1) do
-            let oneU = uniformList.[x]
-            let twoU = uniformList.[x+1]
-            let oneN = sqrt(-2.*Math.Log(oneU, Math.E))*sin(2.*Math.PI*twoU)
-            let twoN = sqrt(-2.*Math.Log(oneU, Math.E))*cos(2.*Math.PI*twoU)
-            let tempList = [oneN; twoN]
-            result <- result @ tempList
-        result
-
-module GBM = 
+module GBM_old = 
     open helpers
     open System // for Math.E
 
