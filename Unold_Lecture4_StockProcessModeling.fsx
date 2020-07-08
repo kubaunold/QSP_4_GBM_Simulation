@@ -1,5 +1,7 @@
 module GemetricBrownianMotion
 
+open System
+
 //Script implementing simulation of single stock pracies as values of Gemoetric Brownian Motion with given drift and volatility
 
 module helpers =
@@ -50,6 +52,7 @@ module helpers =
 
 module GBM =
     open helpers
+    open System
 
     //writeResultToFile [[15.; 14.; 78.];[15.; 14.; 78.]] "siemka.txt"
     let simulateGBM (count:int) (steps:int) (price:float) (drift:float) (vol:float) (years:int) (seed:int) =
@@ -92,16 +95,127 @@ module GBM =
     let steps = 250 //must be EVEN!
     let price = 4.20
     let drift = 0.12
-    let vol = 0.2
+    let vol = 0.
     let years = 1
     let seed = 5
     
     simulateGBM count steps price drift vol years seed |> writeResultToFile "output.csv"
 
 module BlackScholesModel =
+    open helpers
+    open System
+    //Params for Geometric Brownian Motion used for simulating stock prices
+    type GBMParams = 
+        {
+            //count:int
+            steps:int
+            price:float
+            drift:float
+            vol:float
+            years:float
+            seed:int
+        }
+    //Params for Black-Scholes Model for pricing an option
+    type BSParams = 
+        {
+            k: float    //strike
+            m: float    //maturity
+        }
+
+    //simulate and predict option price
+    let simulateBlackScholesPutOptionPriceAndDelta_old (gbm:GBMParams) (bs:BSParams) =
+        let normalRV = normalizeRec (genRandomNumbersNominalInterval gbm.steps gbm.seed) gbm.steps
+        //build stock prices list
+        let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
+            if normalId = steps-1 then currentStockPricesList
+            else
+                let firstExpTerm =  (gbm.drift - (gbm.vol**2.)/2.) * (float(gbm.years)/float(steps))
+                let secondExpTerm =  gbm.vol * sqrt(float(gbm.years)/float(steps)) * normalRV.[normalId]
+                let newStockPrice = currentStockPricesList.[normalId] * Math.E ** (firstExpTerm + secondExpTerm)
+                buildStockPricesList (currentStockPricesList@[newStockPrice]) steps (normalId+1)
+        let stockPricesList = buildStockPricesList [gbm.price] gbm.steps 0
+        let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
+        stockPricesList
+
+    let cfd (mean,stdev,point) = 
+        point * 0.87
+
+    //simulate and predict option price
+    let simulateBlackScholesPutOptionPriceAndDelta (gbm:GBMParams) (bs:BSParams) =
+        let normalRV = normalizeRec (genRandomNumbersNominalInterval gbm.steps gbm.seed) gbm.steps
+        //build stock prices list
+        let rec buildStockPricesList (currentStockPricesList:float list) (steps:int) (normalId:int) : float list =
+            if normalId = steps-1 then currentStockPricesList
+            else
+                let firstExpTerm =  (gbm.drift - (gbm.vol**2.)/2.) * (float(gbm.years)/float(steps))
+                let secondExpTerm =  gbm.vol * sqrt(float(gbm.years)/float(steps)) * normalRV.[normalId]
+                let newStockPrice = currentStockPricesList.[normalId] * Math.E ** (firstExpTerm + secondExpTerm)
+                buildStockPricesList (currentStockPricesList@[newStockPrice]) steps (normalId+1)
+        let stockPricesList = buildStockPricesList [gbm.price] gbm.steps 0
+        let finalStockPrice = stockPricesList.[stockPricesList.Length - 1]
+
+        let d1 = (Math.Log(gbm.price/bs.k, Math.E) + (gbm.drift + 0.5*(gbm.vol**2.))*bs.m) / (gbm.vol*sqrt(bs.m))
+        let BScall = 
+            let d2 = d1 - gbm.vol*sqrt(bs.m)
+            let BScallPrice = gbm.price * cfd(0, 1, d1) - (bs.k/Math.E**(gbm.drift*bs.m) * cfd(0, 1, d1))
+            BScallPrice
+        let BScallDelta =
+            cfd(0,1,d1)
+        let BSputDelta = BScallDelta - 1.
+        let BSput =
+            BScall + bs.k/(Math.E**(gbm.drift*bs.m)) - gbm.price
+        //[BScall; BScallDelta; BSput; BSputDelta]
+        //BScall
+        //BSput
+        BScallDelta
+        //BSputDelta
 
 
 
+    let g2 = {
+        years=1.
+        steps=200
+        price=4.2
+        drift=0.14
+        vol=0.1
+        seed=5}
+    let b2 = {
+        k=8.
+        m=1.}
+
+    simulateBlackScholesPutOptionPriceAndDelta g2 b2
+
+
+
+
+    let g = {
+        years=1.
+        steps=200
+        price=1.
+        drift=0.14
+        vol=0.2
+        seed=5}
+    let b = {
+        k=8.
+        m=0.001}
+    let createList =
+        let rec buildList currentResult g b step =
+            if step = 100 then currentResult
+            else
+                let r = simulateBlackScholesPutOptionPriceAndDelta g b
+                let newTapl = [g.price; r]
+                let resNew = currentResult@[newTapl]
+                let gNew = { years=g.years; steps=g.steps; price=g.price+1.; drift=g.drift; vol=g.vol; seed=g.seed}
+                let stepNew = step + 1
+                buildList resNew gNew b stepNew
+        buildList [] g b 1
+
+
+    let a = createList
+
+    a |> writeResultToFile "output0001.csv"
+
+    
 
 module GBM_old = 
     open helpers
